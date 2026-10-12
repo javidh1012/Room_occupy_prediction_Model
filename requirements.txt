@@ -1,0 +1,5 @@
+streamlit
+joblib
+pandas
+pycaret
+scikit-learn==1.4.2
