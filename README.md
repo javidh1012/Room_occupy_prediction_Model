@@ -51,7 +51,7 @@ The pre-trained Machine Learning pipeline evaluates these multi-modal sensor rea
 
 - **Privacy-Preserving**: Accurately estimates occupancy without cameras, microphones recording audio content, or intrusive monitoring.
 - **Interactive Web Interface**: Streamlit UI organized in a clean 4-column layout for rapid input of all 16 sensor readings.
-- **Pre-populated Baselines**: Input fields are pre-loaded with dataset mean values for immediate testing and quick experimentation.
+- **Pre-populated Baselines**: Input fields start with a representative empty-room sensor reading, which predicts 0 occupants.
 - **Real-Time Prediction**: Instant estimation of the room occupancy count with a single click.
 - **Automated Pipeline Handling**: Robust model loading with caching and feature alignment via PyCaret and Scikit-Learn.
 
@@ -64,34 +64,34 @@ The model processes **16 continuous environmental sensor variables**:
 ### 1. Temperature Sensors (°C)
 | Feature | Type | Description | Default Mean |
 | :--- | :--- | :--- | :--- |
-| `S1_Temp` | Numeric | Sensor 1 temperature reading | `25.4558 °C` |
-| `S2_Temp` | Numeric | Sensor 2 temperature reading | `25.5490 °C` |
-| `S3_Temp` | Numeric | Sensor 3 temperature reading | `25.0588 °C` |
-| `S4_Temp` | Numeric | Sensor 4 temperature reading | `25.7565 °C` |
+| `S1_Temp` | Numeric | Sensor 1 temperature reading | `25.81 °C` |
+| `S2_Temp` | Numeric | Sensor 2 temperature reading | `26.88 °C` |
+| `S3_Temp` | Numeric | Sensor 3 temperature reading | `25.50 °C` |
+| `S4_Temp` | Numeric | Sensor 4 temperature reading | `26.25 °C` |
 
 ### 2. Light Sensors (Lux)
 | Feature | Type | Description | Default Mean |
 | :--- | :--- | :--- | :--- |
-| `S1_Light` | Numeric | Sensor 1 illuminance level | `25.5531 Lux` |
-| `S2_Light` | Numeric | Sensor 2 illuminance level | `26.1282 Lux` |
-| `S3_Light` | Numeric | Sensor 3 illuminance level | `34.5756 Lux` |
-| `S4_Light` | Numeric | Sensor 4 illuminance level | `13.1883 Lux` |
+| `S1_Light` | Numeric | Sensor 1 illuminance level | `12 Lux` |
+| `S2_Light` | Numeric | Sensor 2 illuminance level | `13 Lux` |
+| `S3_Light` | Numeric | Sensor 3 illuminance level | `62 Lux` |
+| `S4_Light` | Numeric | Sensor 4 illuminance level | `45 Lux` |
 
 ### 3. Sound Sensors (Volts / Sound Activity)
 | Feature | Type | Description | Default Mean |
 | :--- | :--- | :--- | :--- |
-| `S1_Sound` | Numeric | Sensor 1 acoustic signal reading | `0.1678` |
-| `S2_Sound` | Numeric | Sensor 2 acoustic signal reading | `0.1194` |
-| `S3_Sound` | Numeric | Sensor 3 acoustic signal reading | `0.1604` |
-| `S4_Sound` | Numeric | Sensor 4 acoustic signal reading | `0.1045` |
+| `S1_Sound` | Numeric | Sensor 1 acoustic signal reading | `0.09` |
+| `S2_Sound` | Numeric | Sensor 2 acoustic signal reading | `0.08` |
+| `S3_Sound` | Numeric | Sensor 3 acoustic signal reading | `0.09` |
+| `S4_Sound` | Numeric | Sensor 4 acoustic signal reading | `0.08` |
 
 ### 4. Carbon Dioxide & Motion Sensors
 | Feature | Type | Description | Default Mean |
 | :--- | :--- | :--- | :--- |
-| `S5_CO2` | Numeric | Carbon dioxide concentration in parts per million (ppm) | `462.2035 ppm` |
-| `S5_CO2_Slope` | Numeric | Rate of change / slope of $CO_2$ concentration over time | `-0.0141` |
-| `S6_PIR` | Numeric | Passive Infrared motion detector 1 (activity indicator) | `0.0887` |
-| `S7_PIR` | Numeric | Passive Infrared motion detector 2 (activity indicator) | `0.0792` |
+| `S5_CO2` | Numeric | Carbon dioxide concentration in parts per million (ppm) | `535 ppm` |
+| `S5_CO2_Slope` | Numeric | Rate of change / slope of $CO_2$ concentration over time | `0.438462` |
+| `S6_PIR` | Numeric | Passive Infrared motion detector 1 (activity indicator) | `0` |
+| `S7_PIR` | Numeric | Passive Infrared motion detector 2 (activity indicator) | `0` |
 
 ---
 

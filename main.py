@@ -1,6 +1,10 @@
+import os
 from pathlib import Path
 
+os.environ.setdefault("LOKY_MAX_CPU_COUNT", str(os.cpu_count() or 1))
+
 import joblib
+import numpy as np
 import pandas as pd
 import streamlit as st
 
@@ -24,23 +28,32 @@ USER_INPUT_FEATURES = [
 	"S6_PIR",
 	"S7_PIR",
 ]
-DEFAULT_MEANS = {
-	"S1_Temp": 25.4558026,
-	"S2_Temp": 25.5489866,
-	"S3_Temp": 25.0588027,
-	"S4_Temp": 25.7564505,
-	"S1_Light": 25.5531285,
-	"S2_Light": 26.1282241,
-	"S3_Light": 34.5755893,
-	"S4_Light": 13.1883253,
-	"S1_Sound": 0.167779834,
-	"S2_Sound": 0.119434777,
-	"S3_Sound": 0.16038134,
-	"S4_Sound": 0.104535358,
-	"S5_CO2": 462.203505,
-	"S5_CO2_Slope": -0.0141353158,
-	"S6_PIR": 0.0887325682,
-	"S7_PIR": 0.0792299148,
+INTEGER_STEP_FEATURES = {
+	"S1_Light",
+	"S2_Light",
+	"S3_Light",
+	"S4_Light",
+	"S5_CO2",
+	"S6_PIR",
+	"S7_PIR",
+}
+DEFAULT_SENSOR_READINGS = {
+	"S1_Temp": 25.81,
+	"S2_Temp": 26.88,
+	"S3_Temp": 25.50,
+	"S4_Temp": 26.25,
+	"S1_Light": 12,
+	"S2_Light": 13,
+	"S3_Light": 62,
+	"S4_Light": 45,
+	"S1_Sound": 0.09,
+	"S2_Sound": 0.08,
+	"S3_Sound": 0.09,
+	"S4_Sound": 0.08,
+	"S5_CO2": 535,
+	"S5_CO2_Slope": 0.438462,
+	"S6_PIR": 0,
+	"S7_PIR": 0,
 }
 
 
@@ -58,6 +71,37 @@ def get_model_features(model_obj):
 	if isinstance(model_obj, dict):
 		return [feature for feature in model_obj.get("features", []) if feature != "Room_Occupancy_Count"]
 	return USER_INPUT_FEATURES
+
+
+def build_feature_frame(user_inputs, model_features):
+	"""Build a single-row DataFrame matching the trained PyCaret pipeline schema."""
+	feature_row = {feature: np.nan for feature in model_features}
+	for name in USER_INPUT_FEATURES:
+		if name in user_inputs:
+			feature_row[name] = float(user_inputs[name])
+	return pd.DataFrame([feature_row], columns=model_features)
+
+
+def get_neighbor_diagnostics(trained_model, feature_frame):
+	"""Return transformed features and nearest-neighbor details for KNN pipelines."""
+	steps = getattr(trained_model, "steps", None)
+	if not steps:
+		return None, None
+	estimator = steps[-1][-1]
+	if not hasattr(estimator, "kneighbors"):
+		return None, None
+	transformed = trained_model[:-1].transform(feature_frame) if len(steps) > 1 else feature_frame
+	distances, indices = estimator.kneighbors(transformed)
+	classes = getattr(estimator, "classes_", None)
+	raw_labels = getattr(estimator, "_y", None)
+	neighbors = []
+	for rank, (dist, idx) in enumerate(zip(distances[0], indices[0]), start=1):
+		label = None
+		if raw_labels is not None:
+			raw_val = raw_labels[idx]
+			label = int(classes[raw_val]) if classes is not None and raw_val < len(classes) else int(raw_val)
+		neighbors.append({"Neighbor": rank, "Train Row Index": int(idx), "Euclidean Distance": round(float(dist), 4), "Neighbor Class": label})
+	return transformed, pd.DataFrame(neighbors)
 
 
 st.set_page_config(page_title="Room Occupancy Prediction", page_icon=":material/meeting_room:")
@@ -100,27 +144,55 @@ with st.form("occupancy_inputs"):
 	inputs = {}
 	for index, feature_name in enumerate(USER_INPUT_FEATURES):
 		column = cols[index % 4]
-		default_value = DEFAULT_MEANS.get(feature_name, 0.0)
+		default_value = DEFAULT_SENSOR_READINGS.get(feature_name, 0.0)
 		min_value = -100.0 if feature_name == "S5_CO2_Slope" else 0.0
+		step = 1.0 if feature_name in INTEGER_STEP_FEATURES else 0.01
+		number_format = "%.0f" if feature_name in INTEGER_STEP_FEATURES else "%.4f"
 		label = feature_name.replace("_", " ")
 		inputs[feature_name] = column.number_input(
 			label,
 			min_value=min_value,
 			value=float(default_value),
-			step=0.01,
-			format="%.4f",
+			step=step,
+			format=number_format,
+			key=f"input_{feature_name}",
 		)
 	submitted = st.form_submit_button("Predict occupancy", type="primary")
 
 if submitted:
-	feature_row = {"Date": "", "Time": ""}
-	for name in USER_INPUT_FEATURES:
-		feature_row[name] = inputs[name]
-	feature_frame = pd.DataFrame([feature_row], columns=MODEL_FEATURES)
+	feature_frame = build_feature_frame(inputs, MODEL_FEATURES)
 	try:
 		prediction = trained_model.predict(feature_frame)
 		predicted_value = prediction[0]
-		st.metric("Predicted room occupancy", f"{predicted_value:g}" if isinstance(predicted_value, (int, float)) else str(predicted_value))
+		formatted_prediction = (
+			f"{float(predicted_value):g}"
+			if isinstance(predicted_value, (int, float, np.number))
+			else str(predicted_value)
+		)
+		st.metric("Predicted room occupancy", formatted_prediction)
+
+		if hasattr(trained_model, "predict_proba"):
+			probas = trained_model.predict_proba(feature_frame)[0]
+			classes = getattr(trained_model, "classes_", list(range(len(probas))))
+			proba_text = " | ".join(f"Class {cls}: {prob:.0%}" for cls, prob in zip(classes, probas))
+			st.caption(f"Class probabilities — {proba_text}")
+
+		with st.expander("Prediction debugging info"):
+			st.write("Input DataFrame passed to `trained_model.predict(...)` (column order matches `MODEL_FEATURES`):")
+			st.dataframe(feature_frame, hide_index=True)
+			transformed, neighbors_df = get_neighbor_diagnostics(trained_model, feature_frame)
+			if neighbors_df is not None:
+				st.write("Nearest training neighbors (unscaled Euclidean distance):")
+				st.dataframe(neighbors_df, hide_index=True)
+				st.caption(
+					"Note: This PyCaret pipeline uses KNeighborsClassifier (k=5) without feature scaling. "
+					"High-range features (S5_CO2, S1_Light–S4_Light) dominate Euclidean distance, so changing "
+					"only small-scale features (Temp, Sound, PIR, CO2 Slope) while leaving Light/CO2 near "
+					"empty-room levels can keep the nearest neighbors in Class 0."
+				)
+			if transformed is not None:
+				st.write("Transformed pipeline features:")
+				st.dataframe(transformed, hide_index=True)
 	except Exception as error:
 		st.error("Prediction failed. Confirm the input features and model version match the trained model.")
 		with st.expander("Technical details"):
